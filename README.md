@@ -282,6 +282,18 @@ nginx-mp     ClusterIP   None         <none>        80/TCP    97d
 
 3 sa secert
 查看所有的secret都只和ca证书有关 不需要更新
+
+
 ```
+	ComponentCertRootPKI               = "root-pki"
+	ComponentCertAdminPKI              = "admin-pki"
+	ComponentCertMasterPKI             = "master-pki"
+	ComponentCertExtensionApiserverPKI = "extension-apiserver-pki"
+
+	KubeconfigScheduler         = "scheduler.kubeconfig"
+	KubeconfigControllerManager = "controller-manager.kubeconfig"
+	KubeconfigAdmin             = "admin.kubeconfig"
+	KubeconfigMultiTenancyAdmin = "multi-tenancy-admin.kubeconfig"
+
 kubectl get secret -n kube-system daemon-set-controller-token-vx24r -o yaml
 ```
