@@ -279,3 +279,9 @@ nginx-mp     ClusterIP   None         <none>        80/TCP    97d
 [root@h07d07163.sqa.eu95 /root]
 #
 ```
+
+3 sa secert
+查看所有的secret都只和ca证书有关 不需要更新
+```
+kubectl get secret -n kube-system daemon-set-controller-token-vx24r -o yaml
+```
