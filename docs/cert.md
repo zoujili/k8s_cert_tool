@@ -1,6 +1,5 @@
 # K8s Cert With Captain
 
-
 # 背景
 使用Captain搭建完集群后所有生成证书文件如下
 ```

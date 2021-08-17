@@ -12,14 +12,14 @@ pki
 ├── ca.crt
 ├── ca.key
 ├── etcd
-│   ├── ca.crt
-│   ├── ca.key
-│   ├── healthcheck-client.crt
-│   ├── healthcheck-client.key
-│   ├── peer.crt
-│   ├── peer.key
-│   ├── server.crt
-│   └── server.key
+│   ├── ca.crt
+│   ├── ca.key
+│   ├── healthcheck-client.crt
+│   ├── healthcheck-client.key
+│   ├── peer.crt
+│   ├── peer.key
+│   ├── server.crt
+│   └── server.key
 ├── front-proxy-ca.crt
 ├── front-proxy-ca.key
 ├── front-proxy-client.crt
@@ -49,75 +49,86 @@ pki
 pki
 ├── ca.crt
 ├── ca.key
+├── front-proxy-ca.crt
+├── front-proxy-ca.key
 ├── etcd
-│   ├── ca.crt
-│   ├── ca.key
+│   ├── ca.crt
+│   ├── ca.key
 ├── sa.key
 └── sa.pub
 ```
-如果etcd没有证书问题 那么不需要更新etcd的证书
+如果etcd没有证书问题 那么不需要更新etcd相关的证书
 ```
 ├── etcd
-│   ├── ca.crt
-│   ├── ca.key
-│   ├── healthcheck-client.crt
-│   ├── healthcheck-client.key
-│   ├── peer.crt
-│   ├── peer.key
-│   ├── server.crt
-│   └── server.key
+│   ├── ca.crt
+│   ├── ca.key
+│   ├── healthcheck-client.crt
+│   ├── healthcheck-client.key
+│   ├── peer.crt
+│   ├── peer.key
+│   ├── server.crt
+│   └── server.key
 ```
 
 
-## 3. 获取集群信息
+## 3. 构建环境
+登陆ops机器并执行以下命令:
 ```
-#kubectl get cluster
-NAME         AGE
-k8s-120-v3   196d
+mkdir update_cert
+cd update_cert    # 将cert_tool bin文件拷贝到update_cert文件夹
 
-#kubectl get cluster k8s-120-v3 -o yaml
+scp -r root@master_ip:/etc/kubernetes/pki  update_cert/old_pki #为了获取原有的ca证书 将一台master上的pki复制到ops机器上
 
-#记录spce中的config如下
-clusterConfig:
-apiserverDomains:
-- apiserver.cluster0517.0517.antstack.com
-clusterDomain: antstack.com
-extensionApiserverDomains: null
-serviceSubnet: 172.16.0.0/16
-site: k8s-120-v3
+mkdir root  # 在update_cert下创建root文件夹
+
+update_cert
+├── cert_tool
+└── root
+    ├── ca.crt      【来源 update_cert/old_pki/ca.crt】
+    ├── ca.key      【来源 update_cert/old_pki/ca.crt】
+    ├── etcd        【来源 update_cert/old_pki/ca.crt】
+    │   ├── ca.crt  【来源 update_cert/old_pki/ca.key】
+    │   └── ca.key  【来源 update_cert/old_pki/etcd/ca.crt】
+    ├── front-proxy-ca.crt     【来源 update_cert/old_pki/front-proxy-ca.crt】
+    └── front-proxy-ca.key     【来源 update_cert/old_pki/front-proxy-ca.key】
+
 ```
-
 
 ## 4. 生成新的证书 [不能修改ca!!!]  [不能修改sa!!!]
 ```
-登陆ops机器并执行以下命令:
-#在ops创建文件夹
-mkdir update_cert
-cd update_cert
+# 获取集群的信息，在一台master执行
+## service子网
+cat /etc/kubernetes/manifests/kube-apiserver.yaml |grep service-cluster-ip-rang
+## apiserver域名
+## dns域名
+## master 3台ip
 
-#为了获取原有的ca证书 将一台master上的pki复制到ops机器上
-scp -r root@master_ip:/etc/kubernetes/pki  update_cert/old_pki
-#创建update_cert/root文件夹
-root
-├── ca.crt                  【来源 update_cert/old_pki/ca.crt】
-├── ca.key                  【来源 update_cert/old_pki/ca.key】
-├── etcd                  
-│   ├── ca.crt              【来源 update_cert/old_pki/etcd/ca.crt】
-│   └── ca.key              【来源 update_cert/old_pki/etcd/ca.key】
-├── front-proxy-ca.crt      【来源 update_cert/old_pki/front-proxy-ca.crt】
-└── front-proxy-ca.key      【来源 update_cert/old_pki/front-proxy-ca.key】
+# 执行二进制命令如下
+./cert_tool  --apiserverdomain {apiserver域名} --dnsdomain {dns域名} --servicesubnet {service子网} --masterips {master ip1} --masterips {master ip2} --masterips {master ip3}  gen
 
-## 执行二进制命令如下
+# 得到结果如下
+master_ip1	 [文件夹]
+master_ip2	 [文件夹]
+master_ip3   [文件夹]
+admin        [文件夹]
+kube-proxy   [文件夹]
+kubelet      [文件夹]
 
-## 得到结果如下
+# 复制原有的sa证书
+将原有的sa证书复制到3个ip文件夹内
+cp old_pki/sa.key master_ip1/kubernets/pki/sa.key
+cp old_pki/sa.key master_ip1/kubernets/pki/sa.pub
 
-## 复制原有的sa证书
+cp old_pki/sa.key master_ip2/kubernets/pki/sa.key
+cp old_pki/sa.key master_ip2/kubernets/pki/sa.pub
 
-## 将新生成证书复制到对应3台master上
+cp old_pki/sa.key master_ip3/kubernets/pki/sa.key
+cp old_pki/sa.key master_ip3/kubernets/pki/sa.pub
 
 ```
      
 ## 5. 替换证书
+在每台节点上执行如下命令
 ```
 ##备份
 cp -r /etc/kubernetes/  ~/kubernetes_bak
@@ -125,8 +136,8 @@ mv /etc/kubernetes/kubeconfig ~/kubernetes_config_bak
 mv /etc/kubernetes/pki ~/kubernetes_pki_bak
 
 ## 将新生成的证书复制到目的文件夹
-cp -r update_cert/kubeconfig/ /etc/kubernetes/
-cp -r update_cert/pki/ /etc/kubernetes/
+scp -r update_cert/{master_ip}/kubernetes/kubeconfig/ /etc/kubernetes/
+cp -r update_cert/{master_ip}/kubernetes/pki/ /etc/kubernetes/
 ```
 
 
@@ -176,6 +187,11 @@ update cluster_cert set cakey = '{cakey}' where id = 0000000000000085
 
 验证： 检查captain的页面是否会出现证书错误
 
+## 8.更新node节点上的kubelet和kubeproxy证书
+将admin.kubeconfig拷贝到不健康节点上替换掉kubelet.kubeconfig和kub
+然后重启sigma-slave
+如果还是不健康，需要把 bootstrap.kubeconfig 删掉（备份下）再重启sigma-slave。
+
 ## 常见错误
 #### kubelet
 ```
@@ -196,7 +212,7 @@ Environment="KUBELET_KUBECONFIG_CONFIGS=--kubeconfig=/etc/kubernetes/kubeconfig/
 查看etcd发现没有etcd的进程了, etcd的参数写错了 多了一个-
 
 #### node
-（5）如果有应用节点在刷新证书后不健康，
+如果有应用节点在刷新证书后不健康，
  报错为
 failed to run Kubelet: cannot create certificate signing request: Unauthorized
  
@@ -285,15 +301,15 @@ nginx-mp     ClusterIP   None         <none>        80/TCP    97d
 
 
 ```
-	ComponentCertRootPKI               = "root-pki"
-	ComponentCertAdminPKI              = "admin-pki"
-	ComponentCertMasterPKI             = "master-pki"
-	ComponentCertExtensionApiserverPKI = "extension-apiserver-pki"
+   ComponentCertRootPKI               = "root-pki"
+   ComponentCertAdminPKI              = "admin-pki"
+   ComponentCertMasterPKI             = "master-pki"
+   ComponentCertExtensionApiserverPKI = "extension-apiserver-pki"
 
-	KubeconfigScheduler         = "scheduler.kubeconfig"
-	KubeconfigControllerManager = "controller-manager.kubeconfig"
-	KubeconfigAdmin             = "admin.kubeconfig"
-	KubeconfigMultiTenancyAdmin = "multi-tenancy-admin.kubeconfig"
+   KubeconfigScheduler         = "scheduler.kubeconfig"
+   KubeconfigControllerManager = "controller-manager.kubeconfig"
+   KubeconfigAdmin             = "admin.kubeconfig"
+   KubeconfigMultiTenancyAdmin = "multi-tenancy-admin.kubeconfig"
 
 kubectl get secret -n kube-system daemon-set-controller-token-vx24r -o yaml
 ```
